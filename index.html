@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Golden Spiral Springs – Residue Zoom Visualizer</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #050712;
+    color: #e8eefc;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  canvas { display: block; }
+
+  #ui {
+    position: fixed;
+    right: 16px;
+    top: 16px;
+    width: 380px;
+    max-height: calc(100% - 32px);
+    overflow-y: auto;
+    padding: 12px 14px 14px;
+    background: rgba(8,12,30,0.92);
+    border-radius: 12px;
+    box-shadow: 0 14px 40px rgba(0,0,0,0.6);
+    border: 1px solid rgba(120,150,255,0.3);
+    backdrop-filter: blur(14px);
+  }
+  #ui h1 {
+    font-size: 18px;
+    margin: 0 0 6px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #b9c8ff;
+  }
+  #ui small {
+    display: block;
+    margin-bottom: 10px;
+    font-size: 11px;
+    color: #8089b8;
+  }
+  .tagline {
+    font-size: 11px;
+    color: #939fd0;
+    margin-bottom: 10px;
+  }
+  .row { margin-bottom: 8px; }
+  .row label {
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 2px;
+    color: #d4ddff;
+  }
+  .row label span.value {
+    color: #7fd2ff;
+    font-variant-numeric: tabular-nums;
+  }
+  input[type="range"] { width: 100%; }
+
+  #audioControls {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(120,150,255,0.3);
+  }
+
+  button {
+    margin-top: 4px;
+    padding: 4px 8px;
+    font-size: 11px;
+    border-radius: 999px;
+    border: 1px solid rgba(150,190,255,0.7);
+    background: radial-gradient(circle at 0 0,#253a6f,#10152c 60%,#070914);
+    color: #dfe7ff;
+    cursor: pointer;
+  }
+  button:hover { border-color: #ffffff; }
+
+  #controlsRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  #toggleUiBtn {
+    position: fixed;
+    left: 12px;
+    top: 12px;
+    z-index: 1000;
+    padding: 4px 10px;
+    font-size: 11px;
+    border-radius: 999px;
+    border: 1px solid rgba(150,190,255,0.7);
+    background: radial-gradient(circle at 0 0,#243566,#070914 65%);
+    color: #dfe7ff;
+    cursor: pointer;
+  }
+
+  /* Top-left shortcuts overlay when UI hidden */
+  #shortcutOverlay {
+    position: fixed;
+    left: 12px;
+    top: 48px;
+    z-index: 1000;
+    background: rgba(12, 18, 40, 0.85);
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(140,160,255,0.3);
+    font-size: 12px;
+    color: #d4ddff;
+    line-height: 1.45;
+    backdrop-filter: blur(12px);
+    display: none;
+    white-space: nowrap;
+  }
+
+  /* Bottom-corner quick guide */
+  #quickGuide {
+    position: fixed;
+    bottom: 14px;
+    left: 14px;
+    width: 260px;
+    padding: 12px 14px;
+    background: rgba(10, 14, 32, 0.82);
+    border: 1px solid rgba(130,150,255,0.35);
+    backdrop-filter: blur(12px);
+    border-radius: 10px;
+    color: #e8eeff;
+    font-size: 12px;
+    line-height: 1.4;
+    z-index: 9999;
+    animation: qgFadeIn 0.6s ease-out;
+  }
+  #quickGuideHeader {
+    font-weight: 600;
+    color: #b8c7ff;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  #quickGuideClose {
+    cursor: pointer;
+    font-size: 14px;
+    opacity: 0.75;
+    padding: 0 4px;
+  }
+  #quickGuideClose:hover { opacity: 1; }
+  .qg-section { margin-bottom: 8px; }
+  @keyframes qgFadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+
+<body>
+
+<button id="toggleUiBtn">Hide UI</button>
+
+<!-- Bottom-left quick guide -->
+<div id="quickGuide">
+  <div id="quickGuideHeader">
+    Quick Guide
+    <span id="quickGuideClose">✕</span>
+  </div>
+
+  <div class="qg-section">
+    <strong>🖱 Brush Size</strong><br>
+    Scroll to zoom — zoom = brush size.
+  </div>
+
+  <div class="qg-section">
+    <strong>🎨 Painting Spirals</strong><br>
+    Click near the spiral’s center, hold, and drag to paint golden spiral strokes.
+    Move in rhythm with your music for flowing brushwork.
+  </div>
+
+  <div class="qg-section">
+    <strong>🎧 Audio Reactive Mode</strong><br>
+    Load a track → click “Enable Audio Reactive Mode”.
+  </div>
+
+  <div class="qg-section">
+    <strong>⌨ Keyboard Controls</strong><br>
+    F — Freeze color<br>
+    H — Hide / Show UI<br>
+    P — Screenshot<br>
+    C — Clear trails<br>
+    R — Record video<br>
+    X — Flip rotation<br>
+    M — Twin spirals
+  </div>
+</div>
+
+<canvas id="c"></canvas>
+
+<!-- Shortcuts overlay (shown only when UI is hidden) -->
+<div id="shortcutOverlay">
+  <strong style="color:#b9c8ff;">Shortcuts</strong><br>
+  F — Freeze color<br>
+  H — Hide / Show menu<br>
+  P — Screenshot<br>
+  C — Clear trails<br>
+  R — Record video<br>
+  X — Flip rotation<br>
+  M — Twin spirals
+</div>
+
+<div id="ui">
+  <h1>Golden Spiral Springs</h1>
+  <div class="tagline">Residue, zoom modulation, spectral spring.</div>
+  <small>Drag to pan — Scroll to zoom — Audio modulates geometry</small>
+
+  <div class="row">
+    <label>Turns <span class="value" id="turnsVal"></span></label>
+    <input type="range" id="turns" min="1" max="10" step="0.1" value="6">
+  </div>
+
+  <div class="row">
+    <label>Coils per Turn <span class="value" id="coilsVal"></span></label>
+    <input type="range" id="coilsPerTurn" min="0" max="12" step="0.1" value="6">
+  </div>
+
+  <div class="row">
+    <label>Spring Amplitude <span class="value" id="ampVal"></span></label>
+    <input type="range" id="amplitude" min="0" max="80" step="1" value="22">
+  </div>
+
+  <div class="row">
+    <label>Base Radius <span class="value" id="radVal"></span></label>
+    <input type="range" id="baseRadius" min="10" max="120" step="1" value="40">
+  </div>
+
+  <div class="row">
+    <label>Line Width <span class="value" id="lwVal"></span></label>
+    <input type="range" id="lineWidth" min="0.5" max="4" step="0.1" value="1.8">
+  </div>
+
+  <div id="audioControls">
+    <input type="file" id="audioFile" accept="audio/*">
+    <audio id="audio" controls></audio>
+    <button id="enableReactive">Enable Audio Reactive Mode</button>
+    <div id="reactiveStatus">Status: idle</div>
+
+    <div id="controlsRow">
+      <button id="clearBtn">Clear Trails</button>
+      <button id="captureBtn">Capture Image</button>
+      <button id="recordBtn">Start Recording</button>
+    </div>
+    <div id="zoomLabel">Zoom baseline: <span id="zoomVal">1.00×</span></div>
+  </div>
+
+  <!-- Keyboard shortcuts panel in the main UI -->
+  <div class="hint" style="
+      margin-top:16px;
+      padding:12px;
+      background:rgba(18,24,48,0.38);
+      border-radius:10px;
+      border:1px solid rgba(120,150,255,0.25);
+      line-height:1.5;
+  ">
+    <div style="font-size:12px; color:#b9c8ff; font-weight:600; margin-bottom:6px;">
+      Keyboard Shortcuts
+    </div>
+    <div style="font-size:12px; color:#d4ddff;">
+      <strong>F</strong> — Freeze / unfreeze color<br>
+      <strong>H</strong> — Hide / show menu<br>
+      <strong>P</strong> — Capture screenshot (PNG)<br>
+      <strong>C</strong> — Clear trails<br>
+      <strong>R</strong> — Start / stop recording<br>
+      <strong>X</strong> — Flip rotation<br>
+      <strong>M</strong> — Toggle twin spirals
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const canvas = document.getElementById("c");
+  const ctx = canvas.getContext("2d");
+
+  const uiPanel = document.getElementById("ui");
+  const toggleUiBtn = document.getElementById("toggleUiBtn");
+  const shortcutOverlay = document.getElementById("shortcutOverlay");
+
+  const quickGuide = document.getElementById("quickGuide");
+  const quickGuideClose = document.getElementById("quickGuideClose");
+  quickGuideClose.addEventListener("click", () => {
+    quickGuide.style.display = "none";
+  });
+
+  const turnsEl = document.getElementById("turns");
+  const coilsEl = document.getElementById("coilsPerTurn");
+  const ampEl   = document.getElementById("amplitude");
+  const radEl   = document.getElementById("baseRadius");
+  const lwEl    = document.getElementById("lineWidth");
+
+  const turnsVal = document.getElementById("turnsVal");
+  const coilsVal = document.getElementById("coilsVal");
+  const ampVal   = document.getElementById("ampVal");
+  const radVal   = document.getElementById("radVal");
+  const lwVal    = document.getElementById("lwVal");
+
+  const audioFileEl = document.getElementById("audioFile");
+  const audioEl     = document.getElementById("audio");
+  const enableReactiveBtn = document.getElementById("enableReactive");
+  const reactiveStatus    = document.getElementById("reactiveStatus");
+
+  const clearBtn   = document.getElementById("clearBtn");
+  const captureBtn = document.getElementById("captureBtn");
+  const recordBtn  = document.getElementById("recordBtn");
+  const zoomValEl  = document.getElementById("zoomVal");
+
+  function clamp(v, mi, ma) { return v < mi ? mi : (v > ma ? ma : v); }
+
+  /* ---------- Clear Trails ---------- */
+  function clearTrails() {
+    const w = canvas.width / (window.devicePixelRatio||1);
+    const h = canvas.height/ (window.devicePixelRatio||1);
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle = "#050712";
+    ctx.fillRect(0,0,w,h);
+  }
+
+  /* ---------- Recording ---------- */
+  let mediaRecorder, recordedChunks = [], recording = false;
+
+  function startRecording() {
+    const stream = canvas.captureStream(30);
+    recordedChunks = [];
+    mediaRecorder = new MediaRecorder(stream);
+    mediaRecorder.ondataavailable = e => { if (e.data.size) recordedChunks.push(e.data); };
+    mediaRecorder.onstop = saveRecording;
+    mediaRecorder.start();
+    recording = true;
+    recordBtn.textContent = "Stop Recording";
+  }
+
+  function stopRecording() {
+    recording = false;
+    recordBtn.textContent = "Start Recording";
+    if (mediaRecorder) mediaRecorder.stop();
+  }
+
+  function saveRecording() {
+    const blob = new Blob(recordedChunks, { type: "video/webm" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "golden_springs_" + Date.now() + ".webm";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /* ---------- Spiral rotation & twin mode ---------- */
+  let rotationDir = 1;   // 1 = normal, -1 = flipped
+  let dualMode = false;  // twin spirals off by default
+
+  /* ---------- Freeze color state ---------- */
+  let freezeColor = false;
+
+  /* ---------- Keyboard Shortcuts ---------- */
+  window.addEventListener("keydown", e => {
+    const k = e.key.toLowerCase();
+
+    if (k === "f") {
+      freezeColor = !freezeColor;
+    }
+
+    if (k === "h") {
+      if (uiPanel.style.display === "none") {
+        uiPanel.style.display = "";
+        toggleUiBtn.textContent = "Hide UI";
+        shortcutOverlay.style.display = "none";
+      } else {
+        uiPanel.style.display = "none";
+        toggleUiBtn.textContent = "Show UI";
+        shortcutOverlay.style.display = "";
+      }
+    }
+
+    if (k === "p") {
+      const link = document.createElement("a");
+      link.download = "golden_springs_" + Date.now() + ".png";
+      link.href = canvas.toDataURL("image/png");
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    if (k === "c") {
+      clearTrails();
+    }
+
+    if (k === "r") {
+      if (!recording) startRecording();
+      else stopRecording();
+    }
+
+    if (k === "x") {
+      rotationDir *= -1;
+    }
+
+    if (k === "m") {
+      dualMode = !dualMode;
+    }
+  });
+
+  /* ---------- Toggle UI button ---------- */
+  toggleUiBtn.addEventListener("click", () => {
+    if (uiPanel.style.display === "none") {
+      uiPanel.style.display = "";
+      toggleUiBtn.textContent = "Hide UI";
+      shortcutOverlay.style.display = "none";
+    } else {
+      uiPanel.style.display = "none";
+      toggleUiBtn.textContent = "Show UI";
+      shortcutOverlay.style.display = "";
+    }
+  });
+
+  /* ---------- Pan & Zoom ---------- */
+  let offsetX = 0, offsetY = 0;
+  let baseZoom = 1;
+  let zoom = 1;
+  let isDragging = false;
+  let lastX = 0, lastY = 0;
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width  = window.innerWidth * dpr;
+    canvas.height = window.innerHeight * dpr;
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.fillStyle = "#050712";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+  }
+  window.addEventListener("resize", resize);
+  resize();
+
+  canvas.addEventListener("mousedown", e => {
+    isDragging = true;
+    lastX = e.clientX;
+    lastY = e.clientY;
+  });
+  window.addEventListener("mouseup", () => isDragging = false);
+  window.addEventListener("mousemove", e => {
+    if (!isDragging) return;
+    offsetX += e.clientX - lastX;
+    offsetY += e.clientY - lastY;
+    lastX = e.clientX;
+    lastY = e.clientY;
+  });
+
+  canvas.addEventListener("wheel", e => {
+    e.preventDefault();
+    const factor = Math.exp(-e.deltaY * 0.001);
+    baseZoom = clamp(baseZoom * factor, 0.01, 10); // min zoom 0.01
+    zoom = baseZoom;
+    zoomValEl.textContent = baseZoom.toFixed(2) + "×";
+  }, { passive: false });
+
+  /* ---------- Button hooks ---------- */
+  clearBtn.addEventListener("click", clearTrails);
+
+  captureBtn.addEventListener("click", () => {
+    const link = document.createElement("a");
+    link.download = "golden_springs_" + Date.now() + ".png";
+    link.href = canvas.toDataURL("image/png");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  });
+
+  recordBtn.addEventListener("click", () => {
+    if (!recording) startRecording();
+    else stopRecording();
+  });
+
+  /* ---------- Base Params ---------- */
+  const base = {
+    turns: parseFloat(turnsEl.value),
+    coilsPerTurn: parseFloat(coilsEl.value),
+    amplitude: parseFloat(ampEl.value),
+    baseRadius: parseFloat(radEl.value),
+    lineWidth: parseFloat(lwEl.value)
+  };
+
+  function setLabels(p) {
+    turnsVal.textContent = p.turns.toFixed(1);
+    coilsVal.textContent = p.coilsPerTurn.toFixed(2);
+    ampVal.textContent   = p.amplitude.toFixed(0);
+    radVal.textContent   = p.baseRadius.toFixed(0);
+    lwVal.textContent    = p.lineWidth.toFixed(1);
+  }
+
+  /* ---------- Audio ---------- */
+  let audioCtx = null;
+  let analyser = null;
+  let freqData = null;
+  let sourceNode = null;
+  let audioReactive = false;
+
+  audioFileEl.addEventListener("change", () => {
+    const file = audioFileEl.files[0];
+    if (!file) return;
+    audioEl.src = URL.createObjectURL(file);
+    audioEl.play().catch(()=>{});
+  });
+
+  enableReactiveBtn.addEventListener("click", async () => {
+    if (!audioCtx) audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+    await audioCtx.resume();
+    if (!sourceNode) {
+      sourceNode = audioCtx.createMediaElementSource(audioEl);
+      analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 2048;
+      freqData = new Uint8Array(analyser.frequencyBinCount);
+      sourceNode.connect(analyser);
+      analyser.connect(audioCtx.destination);
+    }
+    audioReactive = true;
+    reactiveStatus.textContent = "Status: audio-reactive";
+    reactiveStatus.style.color = "#7fd2ff";
+  });
+
+  /* ---------- Band Energy + Hue ---------- */
+  let subSmooth=0,bassSmooth=0,lowMidSmooth=0,highMidSmooth=0,trebleSmooth=0,overallSmooth=0;
+  let hueOffset = Math.random() * 360;
+  let lastHueTime = performance.now();
+
+  function sampleBands() {
+    const now = performance.now();
+    const dt = (now - lastHueTime) / 1000;
+    lastHueTime = now;
+
+    if (!audioReactive || !analyser) {
+      if (!freezeColor) {
+        hueOffset = (hueOffset + dt * 25) % 360;
+      }
+      subSmooth*=0.9; bassSmooth*=0.9; lowMidSmooth*=0.9;
+      highMidSmooth*=0.9; trebleSmooth*=0.9; overallSmooth*=0.9;
+      return;
+    }
+
+    analyser.getByteFrequencyData(freqData);
+    const n = freqData.length;
+    const b = Math.floor(n/5);
+
+    function avg(s,e){
+      let sum=0,c=0;
+      for(let i=s;i<e;i++){ sum+=freqData[i]; c++; }
+      return c? sum/c : 0;
+    }
+
+    const s = avg(0,b)/255;
+    const bs= avg(b,b*2)/255;
+    const lm= avg(b*2,b*3)/255;
+    const hm= avg(b*3,b*4)/255;
+    const tr= avg(b*4,n)/255;
+
+    let all=0; for(let i=0;i<n;i++) all+=freqData[i];
+    all = (all/n)/255;
+
+    const sf=0.22;
+    subSmooth     += (s  - subSmooth)    * sf;
+    bassSmooth    += (bs - bassSmooth)   * sf;
+    lowMidSmooth  += (lm - lowMidSmooth) * sf;
+    highMidSmooth += (hm - highMidSmooth)* sf;
+    trebleSmooth  += (tr - trebleSmooth) * sf;
+    overallSmooth += (all- overallSmooth)* sf;
+
+    if (!freezeColor) {
+      const baseSpin = dt * 30;
+      const audioSpin = (trebleSmooth * 12 + overallSmooth * 4);
+      hueOffset = (hueOffset + baseSpin + audioSpin) % 360;
+    }
+  }
+
+  /* ---------- Dynamic Params (coils clamped 0–12) ---------- */
+  function computeDynamic(time) {
+    const subBass = (subSmooth + bassSmooth) / 2;
+
+    // Turns biased to higher side
+    const turnsBase = Math.max(base.turns, 4);
+    const turnsSpan = 10 - turnsBase;
+    const turns = turnsBase + turnsSpan * subBass * (0.5 + 0.5 * Math.sin(time * 4));
+
+    // Coils per turn: slider baseline + wide modulation, clamped 0–12
+    const coilsCenter = base.coilsPerTurn;
+    const coilsSpan   = 12;
+    const coilsDelta  = coilsSpan * highMidSmooth * Math.sin(time * 6 + 1);
+    const coilsPerTurn = clamp(coilsCenter + coilsDelta, 0, 12);
+
+    const amplitude = base.amplitude + 40 * lowMidSmooth * Math.sin(time * 5 + 0.3);
+    const baseRadius = base.baseRadius + 60 * subBass * Math.sin(time * 3.5 + 2.1);
+    const lineWidth  = base.lineWidth + 2 * (trebleSmooth + overallSmooth) * Math.sin(time * 7 + 0.6);
+
+    return {
+      turns: clamp(turns, 1, 10),
+      coilsPerTurn,
+      amplitude: clamp(amplitude, 0, 80),
+      baseRadius: clamp(baseRadius, 10, 120),
+      lineWidth: clamp(lineWidth, 0.5, 4)
+    };
+  }
+
+  /* ---------- Draw Spring (Residue Mode, single or twin) ---------- */
+  function drawSpring(params) {
+    const { turns, coilsPerTurn, amplitude, baseRadius, lineWidth } = params;
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+
+    ctx.save();
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.translate(w/2 + offsetX, h/2 + offsetY);
+
+    const subBass = (subSmooth + bassSmooth) / 2;
+    const zoomWave = 1 + 0.45 * subBass * Math.sin(performance.now()/1000 * 2.2) + 0.3 * overallSmooth;
+    const zoomAudioFactor = clamp(zoomWave, 0.3, 2.5);
+    zoom = baseZoom * zoomAudioFactor;
+    ctx.scale(zoom, zoom);
+
+    const phi = (1 + Math.sqrt(5)) / 2;
+    const b = (2 * Math.log(phi)) / Math.PI;
+    const a = baseRadius;
+
+    const steps = 2000;
+    const θ0 = 0, θ1 = turns * Math.PI * 2;
+
+    function drawOne(sign, hueShift) {
+      ctx.shadowBlur = 18 + overallSmooth * 30;
+      ctx.shadowColor = `hsl(${(hueOffset + hueShift + 30) % 360},85%,${55 + overallSmooth * 15}%)`;
+      ctx.strokeStyle = `hsl(${(hueOffset + hueShift) % 360},78%,${53 + overallSmooth * 10}%)`;
+      ctx.lineWidth = lineWidth;
+
+      ctx.beginPath();
+      let first = true;
+
+      for (let i = 0; i <= steps; i++) {
+        const t = θ0 + (θ1 - θ0) * (i / steps);
+        const r = a * Math.exp(b * t);
+
+        const angle = sign * t;
+
+        const x = r * Math.cos(angle);
+        const y = r * Math.sin(angle);
+
+        const drdt = b * r;
+        const dxdt = drdt * Math.cos(angle) - r * Math.sin(angle) * sign;
+        const dydt = drdt * Math.sin(angle) * sign + r * Math.cos(angle) * sign;
+        const L = Math.hypot(dxdt, dydt) || 1;
+        const tx = dxdt / L, ty = dydt / L;
+        const nx = -ty, ny = tx;
+
+        const freq = coilsPerTurn * turns;
+        const osc = Math.sin(t * freq);
+        const xs = x + nx * amplitude * osc;
+        const ys = y + ny * amplitude * osc;
+
+        if (first) { ctx.moveTo(xs, ys); first = false; }
+        else ctx.lineTo(xs, ys);
+      }
+      ctx.stroke();
+    }
+
+    // Primary spiral
+    drawOne(rotationDir, 0);
+
+    // Mirrored twin spiral
+    if (dualMode) {
+      drawOne(-rotationDir, 35); // hue-shifted twin
+    }
+
+    ctx.restore();
+
+    ctx.save();
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.fillStyle = "rgba(160,180,255,0.85)";
+    ctx.font = "11px system-ui";
+    ctx.textAlign = "left";
+    const modeLabel = dualMode ? "twin mode" : "single";
+    ctx.fillText("Golden Spiral Springs — residue mode (" + modeLabel + ")", 12, 18);
+    ctx.restore();
+  }
+
+  /* ---------- Main Loop ---------- */
+  let start = performance.now();
+  function loop() {
+    const now = performance.now();
+    const t = (now - start) / 1000;
+
+    sampleBands();
+    const dyn = computeDynamic(t);
+
+    turnsEl.value = dyn.turns.toFixed(1);
+    coilsEl.value = dyn.coilsPerTurn.toFixed(2);
+    ampEl.value   = dyn.amplitude.toFixed(0);
+    radEl.value   = dyn.baseRadius.toFixed(0);
+    lwEl.value    = dyn.lineWidth.toFixed(1);
+    setLabels(dyn);
+
+    drawSpring(dyn);
+    requestAnimationFrame(loop);
+  }
+  loop();
+
+})();
+</script>
+
+</body>
+</html>
+
